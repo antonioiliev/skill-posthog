@@ -6,6 +6,9 @@ import { createTrendsTool } from "./src/tools/trends.js";
 import { createFunnelTool } from "./src/tools/funnel.js";
 import { createEventsTool } from "./src/tools/events.js";
 import { createPersonsTool } from "./src/tools/persons.js";
+import { createRetentionTool } from "./src/tools/retention.js";
+import { createLifecycleTool } from "./src/tools/lifecycle.js";
+import { createPathsTool } from "./src/tools/paths.js";
 
 export default function register(api: OpenClawPluginApi) {
 	const cfg = parseConfig(api.pluginConfig);
@@ -17,6 +20,9 @@ export default function register(api: OpenClawPluginApi) {
 		createFunnelTool(client),
 		createEventsTool(client),
 		createPersonsTool(client),
+		createRetentionTool(client),
+		createLifecycleTool(client),
+		createPathsTool(client),
 	];
 
 	for (const tool of tools) {

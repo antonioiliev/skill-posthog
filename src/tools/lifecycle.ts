@@ -1,38 +1,42 @@
 import { Type } from "@sinclair/typebox";
 import { optionalStringEnum } from "openclaw/plugin-sdk";
-import { BREAKDOWN_TYPES, type PostHogClient, type TrendsResult } from "../client.js";
+import {
+	BREAKDOWN_TYPES,
+	type PostHogClient,
+	type LifecycleResult,
+} from "../client.js";
 
-const INTERVALS = ["hour", "day", "week", "month"] as const;
+const INTERVALS = ["day", "week", "month"] as const;
 
-export function createTrendsTool(client: PostHogClient) {
+export function createLifecycleTool(client: PostHogClient) {
 	return {
-		name: "posthog_trends",
-		label: "PostHog Trends",
+		name: "posthog_lifecycle",
+		label: "PostHog Lifecycle",
 		description:
-			"Get time-series trend data for one or more events. Use this to see event volumes over time, compare events, or break down by properties. NOT for conversion funnels (use posthog_funnel), retention curves (use posthog_retention), or user lifecycle stages (use posthog_lifecycle).",
+			"Analyze user lifecycle stages over time: new, returning, resurrecting, and dormant users. Shows how your active user base is composed. NOT for retention curves (use posthog_retention) or raw event counts (use posthog_trends).",
 		parameters: Type.Object({
 			events: Type.Array(
 				Type.String({
 					description: "Event name, e.g. $pageview",
 				}),
 				{
-					description: "List of event names to query trends for",
+					description:
+						"Event(s) that define user activity (minimum 1)",
 					minItems: 1,
 				},
 			),
 			date_from: Type.String({
 				description:
-					"Start date — relative like -7d, -30d, -1m or absolute YYYY-MM-DD",
+					"Start date — relative like -30d or absolute YYYY-MM-DD",
 			}),
 			date_to: Type.Optional(
 				Type.String({
-					description:
-						"End date — relative or absolute. Defaults to now.",
+					description: "End date — relative or absolute. Defaults to now.",
 				}),
 			),
 			interval: optionalStringEnum(INTERVALS, {
 				description:
-					"Time bucket interval: hour, day, week, or month (default: day)",
+					"Time bucket interval: day, week, or month (default: day)",
 			}),
 			breakdown_by: Type.Optional(
 				Type.String({
@@ -60,7 +64,7 @@ export function createTrendsTool(client: PostHogClient) {
 			const date_from = String(params.date_from ?? "").trim();
 			if (!date_from) throw new Error("date_from is required");
 
-			const result: TrendsResult = await client.trendsQuery({
+			const result: LifecycleResult = await client.lifecycleQuery({
 				events,
 				date_from,
 				date_to: params.date_to ? String(params.date_to) : undefined,
@@ -74,7 +78,7 @@ export function createTrendsTool(client: PostHogClient) {
 				filter_test_accounts: params.filter_test_accounts === true,
 			});
 
-			const text = formatTrendsResult(result);
+			const text = formatLifecycleResult(result);
 
 			return {
 				content: [{ type: "text" as const, text }],
@@ -84,37 +88,37 @@ export function createTrendsTool(client: PostHogClient) {
 	};
 }
 
-export function formatTrendsResult(result: TrendsResult): string {
+export function formatLifecycleResult(result: LifecycleResult): string {
 	if (!result.results || result.results.length === 0) {
-		return "Trends query returned no results.";
+		return "Lifecycle query returned no results.";
 	}
 
 	const lines: string[] = [
-		"## Trend Analysis",
+		"## User Lifecycle Analysis",
 		"",
-		"### Summary",
+		"### Summary by Status",
 		"",
-		"| Event | Total Count |",
+		"| Status | Total |",
 		"| --- | --- |",
 	];
 
 	for (const series of result.results) {
-		lines.push(`| ${series.label} | ${series.count} |`);
+		lines.push(`| ${series.status} | ${series.count} |`);
 	}
 
-	// Show interval data for each series
+	// Show interval breakdown per status
 	for (const series of result.results) {
-		if (series.labels && series.data && series.labels.length > 0) {
+		if (series.days && series.data && series.days.length > 0) {
 			lines.push("");
-			lines.push(`### ${series.label} — Interval Breakdown`);
+			lines.push(`### ${series.status} — Interval Breakdown`);
 			lines.push("");
 			lines.push("| Date | Count |");
 			lines.push("| --- | --- |");
 
-			for (let i = 0; i < series.labels.length; i++) {
-				const label = series.days?.[i] ?? series.labels[i];
-				const value = series.data[i] ?? 0;
-				lines.push(`| ${label} | ${value} |`);
+			for (let i = 0; i < series.days.length; i++) {
+				lines.push(
+					`| ${series.days[i]} | ${series.data[i] ?? 0} |`,
+				);
 			}
 		}
 	}

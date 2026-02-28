@@ -2,12 +2,21 @@ import { Type } from "@sinclair/typebox";
 import { optionalStringEnum } from "openclaw/plugin-sdk";
 import { BREAKDOWN_TYPES, type PostHogClient, type FunnelsResult } from "../client.js";
 
+/** Format seconds into a human-readable duration string. */
+export function formatDuration(seconds: number | undefined | null): string {
+	if (seconds == null || seconds <= 0) return "—";
+	if (seconds < 60) return `${Math.round(seconds)}s`;
+	if (seconds < 3600) return `${(seconds / 60).toFixed(1)}m`;
+	if (seconds < 86400) return `${(seconds / 3600).toFixed(1)}h`;
+	return `${(seconds / 86400).toFixed(1)}d`;
+}
+
 export function createFunnelTool(client: PostHogClient) {
 	return {
 		name: "posthog_funnel",
 		label: "PostHog Funnel",
 		description:
-			"Analyze a multi-step conversion funnel. Provide an ordered list of event names to measure drop-off between steps.",
+			"Analyze a multi-step conversion funnel. Provide an ordered list of event names to measure drop-off between steps. NOT for time-series trends (use posthog_trends), retention curves (use posthog_retention), or navigation paths (use posthog_paths).",
 		parameters: Type.Object({
 			steps: Type.Array(
 				Type.String({
@@ -87,7 +96,7 @@ export function createFunnelTool(client: PostHogClient) {
 	};
 }
 
-function formatFunnelsResult(result: FunnelsResult): string {
+export function formatFunnelsResult(result: FunnelsResult): string {
 	if (!result.results || result.results.length === 0) {
 		return "Funnel query returned no results.";
 	}
@@ -98,8 +107,8 @@ function formatFunnelsResult(result: FunnelsResult): string {
 	const lines: string[] = [
 		"## Funnel Analysis",
 		"",
-		"| Step | Event | Count | Conversion | Drop-off |",
-		"| --- | --- | --- | --- | --- |",
+		"| Step | Event | Count | Conversion | Drop-off | Avg Time to Next |",
+		"| --- | --- | --- | --- | --- | --- |",
 	];
 
 	for (let i = 0; i < steps.length; i++) {
@@ -116,9 +125,13 @@ function formatFunnelsResult(result: FunnelsResult): string {
 				? ((count / prevCount) * 100).toFixed(1) + "%"
 				: "—";
 		const dropoff = i > 0 ? prevCount - count : 0;
+		const avgTime =
+			i < steps.length - 1
+				? formatDuration(step.average_conversion_time)
+				: "—";
 
 		lines.push(
-			`| ${i + 1} | ${name} | ${count} | ${i === 0 ? "100%" : stepRate} (${overallRate} overall) | ${i === 0 ? "—" : dropoff} |`,
+			`| ${i + 1} | ${name} | ${count} | ${i === 0 ? "100%" : stepRate} (${overallRate} overall) | ${i === 0 ? "—" : dropoff} | ${avgTime} |`,
 		);
 	}
 

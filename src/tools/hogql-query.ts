@@ -6,7 +6,7 @@ export function createHogqlQueryTool(client: PostHogClient) {
 		name: "posthog_query",
 		label: "PostHog HogQL Query",
 		description:
-			"Run a HogQL (SQL-like) query against PostHog analytics data. Use this for flexible, ad-hoc queries — event counts, property breakdowns, retention analysis, or any custom aggregation.",
+			"Run a HogQL (SQL-like) query against PostHog analytics data. Use this for flexible, ad-hoc queries — event counts, property breakdowns, or any custom aggregation. For time-series trends use posthog_trends; for conversion funnels use posthog_funnel; for retention curves use posthog_retention.",
 		parameters: Type.Object({
 			query: Type.String({
 				description:
@@ -40,7 +40,7 @@ export function createHogqlQueryTool(client: PostHogClient) {
 	};
 }
 
-function formatQueryResult(result: QueryResult): string {
+export function formatQueryResult(result: QueryResult): string {
 	const { columns, results } = result;
 
 	if (!results || results.length === 0) {
